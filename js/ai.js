@@ -66,8 +66,19 @@ class BotBrain {
         if (d2 < bestD2) { bestD2 = d2; best = p; }
       }
       if (best) {
-        target = Math.atan2(best.y - s.y, best.x - s.x);
         const d = Math.sqrt(bestD2);
+        // Close-in handling: hard-aiming at a point closer than our turning
+        // radius makes the head orbit it forever without ever reaching eat
+        // range. Blend toward straight-ahead as we approach so we sweep
+        // through (and eat) the pellet instead of circling around it.
+        const ARRIVE = 64;
+        if (d < ARRIVE) {
+          const off = normAngle(Math.atan2(best.y - s.y, best.x - s.x) - s.angle);
+          const gain = d / ARRIVE; // 1 at zone edge → 0 at contact
+          target = s.angle + clamp(off * (0.35 + 0.65 * gain), -0.42, 0.42);
+        } else {
+          target = Math.atan2(best.y - s.y, best.x - s.x);
+        }
         if (d > 180 && s.mass > 18 && Math.random() < 0.45) boost = true;
       }
     }

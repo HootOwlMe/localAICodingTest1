@@ -138,13 +138,41 @@ class Game {
   }
 
   // ---------- Input ----------
+  // Steer the player toward a client-space screen point.
+  steerTo(cx, cy) {
+    this.player.steer(Math.atan2(cy - this.cssH / 2, cx - this.cssW / 2));
+  }
+
   bindInput() {
     window.addEventListener("mousemove", (e) => {
       if (this.state === "playing" && this.player && this.player.alive) {
-        const a = Math.atan2(e.clientY - this.cssH / 2, e.clientX - this.cssW / 2);
-        this.player.steer(a);
+        this.steerTo(e.clientX, e.clientY);
       }
     });
+
+    // Touch: while a finger is held down the snake follows it (and boosts),
+    // not just the initial tap. Default behavior is only suppressed during
+    // gameplay so menu/death buttons still receive taps on phones.
+    const playing = () => this.state === "playing" && this.player && this.player.alive;
+    window.addEventListener("touchstart", (e) => {
+      if (!playing()) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      if (!t) return;
+      this.steerTo(t.clientX, t.clientY);
+      this.player.setBoost(true);
+    }, { passive: false });
+
+    window.addEventListener("touchmove", (e) => {
+      if (!playing()) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) this.steerTo(t.clientX, t.clientY);
+    }, { passive: false });
+
+    const releaseTouch = () => { if (this.player) this.player.setBoost(false); };
+    window.addEventListener("touchend", releaseTouch);
+    window.addEventListener("touchcancel", releaseTouch);
 
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0 && this.state === "playing" && this.player.alive) this.player.setBoost(true);
@@ -337,7 +365,13 @@ class Game {
     this.scoreEl.textContent = p.score;
     this.killsEl.textContent = p.kills + " kills";
 
-    const top = this.snakes.filter(s => s.alive).sort((a, b) => b.mass - a.mass).slice(0, 10);
+    // Rank all living snakes (mass desc). The player's row is always pinned:
+    // right after a respawn they sit at the bottom of the ranking and would
+    // otherwise drop off the top-10 list, making the board look broken.
+    const ranked = this.snakes.filter(s => s.alive).sort((a, b) => b.mass - a.mass);
+    const myRank = p.alive ? ranked.indexOf(p) : -1;
+    const top = ranked.slice(0, 10);
+
     let html = "";
     for (let i = 0; i < top.length; i++) {
       const s = top[i];
@@ -345,6 +379,12 @@ class Game {
         `<span class="rank">${i + 1}</span>` +
         `<span class="lname">${escapeHtml(s.name)}</span>` +
         `<span class="lscore">${s.score}</span></li>`;
+    }
+    if (myRank >= 10) {
+      html += `<li class="me pinned">` +
+        `<span class="rank">${myRank + 1}</span>` +
+        `<span class="lname">${escapeHtml(p.name)}</span>` +
+        `<span class="lscore">${p.score}</span></li>`;
     }
     this.lbEl.innerHTML = html;
   }

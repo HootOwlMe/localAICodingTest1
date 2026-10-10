@@ -14,6 +14,7 @@ html, body {
   width: 100vw; height: 100vh;
   display: block;
   cursor: crosshair;
+  touch-action: none; /* gameplay touches handled in JS — no scroll/zoom */
 }
 
 .hidden { display: none !important; }
@@ -55,6 +56,7 @@ html, body {
 #lb li .lscore { font-weight: 600; color: #fff; }
 #lb li.me { background: rgba(94, 234, 212, 0.14); color: #5eead4; }
 #lb li.me .lname, #lb li.me .lscore { color: #5eead4; font-weight: 700; }
+#lb li.pinned { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
 
 /* ---------- Overlays ---------- */
 .overlay {
