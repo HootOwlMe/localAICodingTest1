@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slither.io Recreation</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- In-game HUD -->
+<div id="hud" class="hidden">
+  <div id="scorebox">
+    <div id="score-label">LENGTH</div>
+    <div id="score">0</div>
+    <div id="kills">0 kills</div>
+  </div>
+  <div id="leaderboard">
+    <h3>LEADERBOARD</h3>
+    <ol id="lb"></ol>
+  </div>
+</div>
+
+<!-- Start menu -->
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1 class="title">SLITHER<span>.io</span></h1>
+    <p class="subtitle">browser recreation &mdash; eat, grow, don't crash</p>
+    <input id="name-input" type="text" maxlength="14" placeholder="Your name" value="" autocomplete="off">
+    <button id="play-btn" class="btn primary">PLAY</button>
+    <div class="help">
+      <span><b>Mouse</b> steer</span>
+      <span><b>Space / Click</b> boost</span>
+      <span><b>Eat</b> glowing pellets to grow</span>
+      <span><b>Dodge</b> other snakes' bodies</span>
+    </div>
+  </div>
+</div>
+
+<!-- Death screen -->
+<div id="death" class="overlay hidden">
+  <div class="panel">
+    <h1 class="title dead">YOU DIED</h1>
+    <div id="death-stats"></div>
+    <button id="respawn-btn" class="btn primary">RESPAWN</button>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/snake.js"></script>
+<script src="js/food.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
