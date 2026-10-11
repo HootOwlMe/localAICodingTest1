@@ -11,7 +11,9 @@ html, body {
 
 #game {
   position: fixed; inset: 0;
-  width: 100vw; height: 100vh;
+  /* JS pins this to innerWidth×innerHeight px so the CSS box can never
+     diverge from the drawing buffer (mobile URL-bar viewport shifts). */
+  width: 100%; height: 100%;
   display: block;
   cursor: crosshair;
   touch-action: none; /* gameplay touches handled in JS — no scroll/zoom */

@@ -91,6 +91,11 @@ class Game {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+    // Some mobile browsers report layout-viewport changes (URL bar
+    // show/hide) via visualViewport without reliably firing a plain resize.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => this.resize());
+    }
     this.bindInput();
 
     // Attract mode: bots + food play behind the menu.
@@ -112,7 +117,16 @@ class Game {
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.cssW = w; this.cssH = h;
-    this.canvas.width = Math.round(w * this.dpr);
+    // Pin the canvas CSS box to exactly innerWidth × innerHeight — the same
+    // numbers that size the drawing buffer. With a pure `100vw/100vh` CSS
+    // size, mobile browsers (notably iOS Safari) can make the CSS box taller
+    // than innerHeight while the URL bar is visible; the browser then
+    // stretches the buffer to fill it and everything drawn below screen
+    // center shifts down in proportion to y — e.g. the thumbstick spawning
+    // lower than the finger, with the offset growing toward screen bottom.
+    this.canvas.style.width  = w + "px";
+    this.canvas.style.height = h + "px";
+    this.canvas.width  = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
   }
 
@@ -164,7 +178,7 @@ class Game {
       name: this.nextBotName(),
       isPlayer: false,
       x: pos.x, y: pos.y,
-      mass: biasedRandom(8, 600, 10)
+      mass: biasedRandom(8, 600, 6)
     });
     this.snakes.push(s);
     this.brains.push(new BotBrain(s));
