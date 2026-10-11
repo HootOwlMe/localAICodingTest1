@@ -475,8 +475,8 @@ class Game {
     ctx.scale(zoom, zoom);
     ctx.translate(-this.cam.x, -this.cam.y);
 
-    const hw = (w / 2) / zoom + 60;
-    const hh = (h / 2) / zoom + 60;
+    const hw = (w / 2) / zoom + 30;
+    const hh = (h / 2) / zoom + 30;
     const view = {
       x0: this.cam.x - hw, y0: this.cam.y - hh,
       x1: this.cam.x + hw, y1: this.cam.y + hh
