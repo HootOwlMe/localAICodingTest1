@@ -9,12 +9,12 @@ const WORLD_SIZE   = 6000;          // world spans [-HALF, HALF] on both axes
 const HALF         = WORLD_SIZE / 2;
 const FOOD_TARGET  = 2400;           // pellets maintained in the world
 const FOOD_SPAWN_PER_FRAME = 40;  // avg pellets/frame while below target
-const BOT_COUNT    = 15;            // AI snakes kept alive
+const BOT_COUNT    = 20;            // AI snakes kept alive
 const SEG_SPACING  = 4;             // px between body points along the path
 
-const BASE_SPEED   = 120;           // px/s normal movement
-const BOOST_SPEED  = 240;           // px/s while boosting
-const TURN_BASE    = 6.42;          // rad/s max turn rate
+const BASE_SPEED   = 100;           // px/s normal movement
+const BOOST_SPEED  = 210;           // px/s while boosting
+const TURN_BASE    = 7;          // rad/s max turn rate
 const BOOST_DRAIN  = 7;             // mass lost per second while boosting
 const MIN_BOOST_MASS = 8;           // can't boost below this
 const MASS_FLOOR   = 5;             // boost stops draining at this
