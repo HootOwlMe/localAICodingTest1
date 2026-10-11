@@ -1,4 +1,4 @@
-# Slither.io Recreation
+# Slither.io Recreation, calling it Snakey.io
 
 A browser-based recreation of [Slither.io](https://slither.io) — snake meets agar.io.
 Vanilla HTML/CSS/JS with Canvas 2D. No build step, no dependencies.
