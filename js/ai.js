@@ -14,7 +14,7 @@
 "use strict";
 
 const FOOD_RANGE        = 500;   // max distance at which a bot notices food
-const PROGRESS_TIMEOUT  = 1.6;   // s without closing in → abandon target
+const PROGRESS_TIMEOUT  = 2;   // s without closing in → abandon target
 const PASS_THROUGH_DIST = 34;    // closer than this → head straight through
 
 class BotBrain {

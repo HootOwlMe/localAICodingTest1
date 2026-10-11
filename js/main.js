@@ -11,7 +11,7 @@ const BOT_NAMES = [
 ];
 
 // ---------- Mobile input tuning ----------
-const STICK_RADIUS  = 56;   // px, thumbstick travel radius (screen space)
+const STICK_RADIUS  = 70;   // px, thumbstick travel radius (screen space)
 const KNOB_RADIUS   = 26;   // px, drawn knob size
 const DOUBLE_TAP_MS = 350;  // ms window: a 2nd tap within this boosts while held
 
