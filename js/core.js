@@ -7,14 +7,14 @@
 // ---------- World / balance constants ----------
 const WORLD_SIZE   = 6000;          // world spans [-HALF, HALF] on both axes
 const HALF         = WORLD_SIZE / 2;
-const FOOD_TARGET  = 950;           // pellets maintained in the world
-const FOOD_SPAWN_PER_FRAME = 6.25;  // avg pellets/frame while below target (old rate ×1.25)
+const FOOD_TARGET  = 2400;           // pellets maintained in the world
+const FOOD_SPAWN_PER_FRAME = 40;  // avg pellets/frame while below target
 const BOT_COUNT    = 15;            // AI snakes kept alive
-const SEG_SPACING  = 5;             // px between body points along the path
+const SEG_SPACING  = 4;             // px between body points along the path
 
-const BASE_SPEED   = 178;           // px/s normal movement
+const BASE_SPEED   = 168;           // px/s normal movement
 const BOOST_SPEED  = 325;           // px/s while boosting
-const TURN_BASE    = 6.35;          // rad/s max turn rate, two ×1.15 bumps ≈ +32% over the original 4.8 (scales down with size)
+const TURN_BASE    = 6.42;          // rad/s max turn rate
 const BOOST_DRAIN  = 7;             // mass lost per second while boosting
 const MIN_BOOST_MASS = 8;           // can't boost below this
 const MASS_FLOOR   = 5;             // boost stops draining at this

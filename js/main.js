@@ -10,6 +10,11 @@ const BOT_NAMES = [
   "Slowpoke", "Chomper", "Slurpy", "Wormy", "Squiggles"
 ];
 
+// ---------- Mobile input tuning ----------
+const STICK_RADIUS  = 56;   // px, thumbstick travel radius (screen space)
+const KNOB_RADIUS   = 26;   // px, drawn knob size
+const DOUBLE_TAP_MS = 350;  // ms window: a 2nd tap within this boosts while held
+
 function escapeHtml(s) {
   s = String(s == null ? "" : s);
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -35,6 +40,17 @@ class Game {
     this.deathEl    = document.getElementById("death");
     this.statsEl    = document.getElementById("death-stats");
     this.nameInput  = document.getElementById("name-input");
+
+    // Touch / mobile joystick state.
+    this.isTouch   = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+    this.stick     = null;          // {bx, by, kx, ky} base + knob, CSS px
+    this.stickId   = null;          // identifier of the driving touch
+    this.lastTapAt = 0;             // for double-tap-hold boost detection
+
+    if (this.isTouch) {
+      document.getElementById("help-steer").innerHTML  = "<b>Drag</b> the thumbstick to steer";
+      document.getElementById("help-boost").innerHTML = "<b>Double-tap &amp; hold</b> to boost";
+    }
 
     // State
     this.state = "menu";            // menu | playing | dead
@@ -149,42 +165,25 @@ class Game {
   }
 
   bindInput() {
-    window.addEventListener("mousemove", (e) => {
-      if (this.state === "playing" && this.player && this.player.alive) {
-        this.steerTo(e.clientX, e.clientY);
-      }
-    });
+    // Touch devices get a thumbstick + double-tap-hold boost instead of the
+    // mouse handlers: browsers synthesize mousedown/mousemove from touches,
+    // which made every steering drag auto-boost on mobile.
+    if (!this.isTouch) {
+      window.addEventListener("mousemove", (e) => {
+        if (this.state === "playing" && this.player && this.player.alive) {
+          this.steerTo(e.clientX, e.clientY);
+        }
+      });
 
-    // Touch: while a finger is held down the snake follows it (and boosts),
-    // not just the initial tap. Default behavior is only suppressed during
-    // gameplay so menu/death buttons still receive taps on phones.
-    const playing = () => this.state === "playing" && this.player && this.player.alive;
-    window.addEventListener("touchstart", (e) => {
-      if (!playing()) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      if (!t) return;
-      this.steerTo(t.clientX, t.clientY);
-      this.player.setBoost(true);
-    }, { passive: false });
-
-    window.addEventListener("touchmove", (e) => {
-      if (!playing()) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      if (t) this.steerTo(t.clientX, t.clientY);
-    }, { passive: false });
-
-    const releaseTouch = () => { if (this.player) this.player.setBoost(false); };
-    window.addEventListener("touchend", releaseTouch);
-    window.addEventListener("touchcancel", releaseTouch);
-
-    this.canvas.addEventListener("mousedown", (e) => {
-      if (e.button === 0 && this.state === "playing" && this.player.alive) this.player.setBoost(true);
-    });
-    window.addEventListener("mouseup", () => {
-      if (this.player) this.player.setBoost(false);
-    });
+      this.canvas.addEventListener("mousedown", (e) => {
+        if (e.button === 0 && this.state === "playing" && this.player.alive) this.player.setBoost(true);
+      });
+      window.addEventListener("mouseup", () => {
+        if (this.player) this.player.setBoost(false);
+      });
+    } else {
+      this.bindTouch();
+    }
 
     window.addEventListener("keydown", (e) => {
       if (e.code === "Space") {
@@ -201,6 +200,56 @@ class Game {
     this.nameInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.start();
     });
+  }
+
+  // Mobile: drag a thumbstick to steer; double-tap & hold to boost.
+  bindTouch() {
+    const canvas = this.canvas;
+
+    canvas.addEventListener("touchstart", (e) => {
+      if (this.state !== "playing" || !this.player || !this.player.alive) return;
+      e.preventDefault(); // block synthesized mouse events + page gestures
+      if (this.stickId != null) return; // one finger drives the game
+
+      const t = e.changedTouches[0];
+      const now = performance.now();
+      if (now - this.lastTapAt <= DOUBLE_TAP_MS) this.player.setBoost(true);
+      this.lastTapAt = now;
+
+      // Spawn the thumbstick under this finger.
+      this.stickId = t.identifier;
+      this.stick = { bx: t.clientX, by: t.clientY, kx: t.clientX, ky: t.clientY };
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      if (this.stickId == null) return;
+      e.preventDefault();
+      const s = this.stick;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier !== this.stickId) continue;
+        let dx = t.clientX - s.bx, dy = t.clientY - s.by;
+        const d = Math.hypot(dx, dy);
+        if (d > STICK_RADIUS) { dx *= STICK_RADIUS / d; dy *= STICK_RADIUS / d; }
+        s.kx = s.bx + dx;
+        s.ky = s.by + dy;
+        // Small deadzone so a resting finger doesn't jitter the heading.
+        if (d > 10 && this.state === "playing" && this.player.alive) {
+          this.player.steer(Math.atan2(dy, dx));
+        }
+      }
+    }, { passive: false });
+
+    const endTouch = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier !== this.stickId) continue;
+        this.stickId = null;
+        this.stick = null;
+        if (this.player) this.player.setBoost(false);
+      }
+    };
+    canvas.addEventListener("touchend", endTouch, { passive: false });
+    canvas.addEventListener("touchcancel", endTouch, { passive: false });
   }
 
   start() {
@@ -442,6 +491,18 @@ class Game {
     for (const s of alive) s.draw(ctx, view, this.time);
 
     ctx.restore();
+
+    // Mobile thumbstick (screen space, drawn last).
+    if (this.isTouch && this.stick) {
+      const st = this.stick;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(st.bx, st.by, STICK_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      circle(ctx, st.kx, st.ky, KNOB_RADIUS);
+    }
   }
 }
 
