@@ -2,16 +2,30 @@
 // ai.js — BotBrain: steering decisions for AI snakes
 // ============================================================
 // Decision priority each tick: wall danger > snake-body danger
-// > nearest food > lazy wander. Decisions are staggered (~every
+// > food pursuit > lazy wander. Decisions are staggered (~every
 // 80-140ms per bot) so the herd doesn't move in lockstep.
+//
+// Food pursuit is *committed*: a bot locks onto one pellet and tracks
+// progress toward it. If it can't close the distance — usually because
+// avoidance steering keeps deflecting it around the target — it gives
+// up after ~1.6s and falls back to wander/re-pick. This prevents bots
+// from orbiting a single pellet until something else moves nearby.
 
 "use strict";
+
+const FOOD_RANGE        = 500;   // max distance at which a bot notices food
+const PROGRESS_TIMEOUT  = 1.6;   // s without closing in → abandon target
+const PASS_THROUGH_DIST = 34;    // closer than this → head straight through
 
 class BotBrain {
   constructor(snake) {
     this.snake = snake;
     this.decisionTimer = Math.random() * 0.12;
     this.seed = Math.random() * 100;
+    // Committed food-target state.
+    this.targetPellet = null;     // pellet reference (or null)
+    this.bestDist = Infinity;     // smallest distance seen since acquiring it
+    this.progressDeadline = 0;    // world.time by which progress must resume
   }
 
   update(dt, world) {
@@ -58,29 +72,10 @@ class BotBrain {
       }
     }
 
-    // ---- 3) Nearest food within reach → head for it, maybe boost ----
+    // ---- 3) Committed food pursuit ----
     if (target == null) {
-      let best = null, bestD2 = 500 * 500;
-      for (const p of world.food.pellets) {
-        const d2 = dist2(s.x, s.y, p.x, p.y);
-        if (d2 < bestD2) { bestD2 = d2; best = p; }
-      }
-      if (best) {
-        const d = Math.sqrt(bestD2);
-        // Close-in handling: hard-aiming at a point closer than our turning
-        // radius makes the head orbit it forever without ever reaching eat
-        // range. Blend toward straight-ahead as we approach so we sweep
-        // through (and eat) the pellet instead of circling around it.
-        const ARRIVE = 64;
-        if (d < ARRIVE) {
-          const off = normAngle(Math.atan2(best.y - s.y, best.x - s.x) - s.angle);
-          const gain = d / ARRIVE; // 1 at zone edge → 0 at contact
-          target = s.angle + clamp(off * (0.35 + 0.65 * gain), -0.42, 0.42);
-        } else {
-          target = Math.atan2(best.y - s.y, best.x - s.x);
-        }
-        if (d > 180 && s.mass > 18 && Math.random() < 0.45) boost = true;
-      }
+      const res = this.pursueFood(s, world);
+      if (res) { target = res.angle; boost = res.boost; }
     }
 
     // ---- 4) Wander: smooth sinusoidal drift, calmer when big ----
@@ -91,5 +86,63 @@ class BotBrain {
 
     s.steer(target);
     s.setBoost(boost);
+  }
+
+  // Committed pursuit of one pellet. Returns {angle, boost}, or null to wander.
+  pursueFood(s, world) {
+    let p = this.targetPellet;
+
+    // Drop a stale target: eaten by someone else, or drifted out of range.
+    if (p && (p.dead || dist2(s.x, s.y, p.x, p.y) > FOOD_RANGE * FOOD_RANGE)) {
+      p = null;
+    }
+
+    // Acquire a new target: nearest pellet by *arrival cost* — distance
+    // penalized by how far the bot would have to turn. Preferring pellets
+    // roughly ahead of us avoids instantly slinging around behind the head,
+    // which is what sets up tight orbits in the first place.
+    if (!p) {
+      const out = [];
+      world.food.grid.query(s.x, s.y, FOOD_RANGE, out);
+      let best = null, bestCost = Infinity;
+      for (const cand of out) {
+        const d2 = dist2(s.x, s.y, cand.x, cand.y);
+        if (d2 >= FOOD_RANGE * FOOD_RANGE) continue;
+        const d = Math.sqrt(d2);
+        const turn = Math.abs(normAngle(Math.atan2(cand.y - s.y, cand.x - s.x) - s.angle));
+        const cost = d * (1 + 1.2 * turn / Math.PI);
+        if (cost < bestCost) { bestCost = cost; best = cand; }
+      }
+      if (!best) return null; // nothing in range → wander
+      p = best;
+      this.targetPellet = p;
+      this.bestDist = Math.sqrt(dist2(s.x, s.y, p.x, p.y));
+      this.progressDeadline = world.time + PROGRESS_TIMEOUT;
+    }
+
+    const d = Math.sqrt(dist2(s.x, s.y, p.x, p.y));
+
+    // Progress tracking. Only real closing (≥ 3px) counts as progress;
+    // otherwise the deadline runs out and we abandon the pellet — that's
+    // the self-rescue for bots deflected into a circle around it.
+    if (d < this.bestDist - 3) {
+      this.bestDist = d;
+      this.progressDeadline = world.time + PROGRESS_TIMEOUT;
+    } else if (world.time > this.progressDeadline) {
+      this.targetPellet = null;
+      this.bestDist = Infinity;
+      return null; // wander for a bit, then re-pick
+    }
+
+    // Very close: keep heading straight so momentum carries us over the
+    // pellet. Aiming exactly at a point we're nearly on top of makes us
+    // orbit it instead of passing through — tryEat() grabs it as we cross.
+    if (d < Math.max(PASS_THROUGH_DIST, s.radius * 1.6)) {
+      return { angle: s.angle, boost: false };
+    }
+
+    let boost = false;
+    if (d > 180 && s.mass > 18 && Math.random() < 0.45) boost = true;
+    return { angle: Math.atan2(p.y - s.y, p.x - s.x), boost };
   }
 }

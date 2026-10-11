@@ -43,9 +43,14 @@ class FoodSystem {
 
   // ---------- Per-frame update ----------
   update() {
-    // Top the population back up to FOOD_TARGET (a few per frame).
+    // Top the population back up to FOOD_TARGET, refilling ~25% faster than
+    // the original rate: on average FOOD_SPAWN_PER_FRAME pellets per frame.
     const deficit = FOOD_TARGET - this.pellets.length;
-    if (deficit > 0) this.spawnRandom(Math.min(deficit, 5));
+    if (deficit > 0) {
+      let n = Math.min(deficit, Math.floor(FOOD_SPAWN_PER_FRAME));
+      if (n < deficit && Math.random() < FOOD_SPAWN_PER_FRAME % 1) n++;
+      this.spawnRandom(n);
+    }
 
     // Rebuild the spatial index.
     this.grid.clear();

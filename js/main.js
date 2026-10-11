@@ -11,6 +11,7 @@ const BOT_NAMES = [
 ];
 
 function escapeHtml(s) {
+  s = String(s == null ? "" : s);
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
@@ -39,6 +40,7 @@ class Game {
     this.state = "menu";            // menu | playing | dead
     this.time = 0;
     this.lastT = performance.now();
+    this.lastLoopErrAt = 0;
     this.shake = 0;
     this.hudTimer = 0;
     this.player = null;
@@ -92,7 +94,10 @@ class Game {
   }
 
   nextBotName() {
-    if (this.namePool.length === 0) this.shuffleNames();
+    // Refill from the master list when exhausted — shuffling an empty pool
+    // in place would hand out `undefined` names, which later crashed the
+    // leaderboard render (escapeHtml) and froze the whole game loop.
+    if (this.namePool.length === 0) this.namePool = BOT_NAMES.slice();
     return this.namePool.pop();
   }
 
@@ -223,10 +228,20 @@ class Game {
     this.lastT = t;
     if (dt > 0) {
       this.time += dt;
-      this.update(dt);
+      try { this.update(dt); } catch (err) { this.reportLoopError(err); }
     }
-    this.render();
+    // Guarded separately so one bad frame can never wedge the loop: without
+    // this, a single recurring exception in update() skips render() forever.
+    try { this.render(); } catch (err) { this.reportLoopError(err); }
   };
+
+  reportLoopError(err) {
+    const now = performance.now();
+    if (now - this.lastLoopErrAt > 1000) {
+      this.lastLoopErrAt = now;
+      console.error("game loop error:", err);
+    }
+  }
 
   update(dt) {
     // Food: top up + rebuild its spatial index.
@@ -262,6 +277,10 @@ class Game {
 
     // Collisions → deaths.
     this.checkCollisions();
+
+    // Housekeeping: drop dead snakes so the array (and their segment data)
+    // doesn't grow forever over a long session.
+    this.snakes = this.snakes.filter(s => s.alive || s === this.player);
 
     // Bot respawns.
     for (let i = this.pendingRespawns.length - 1; i >= 0; i--) {
@@ -339,6 +358,7 @@ class Game {
       this.hudEl.classList.add("hidden");
       this.deathEl.classList.remove("hidden");
     } else {
+      this.namePool.push(s.name); // name is free again once the bot is gone
       this.pendingRespawns.push(this.time + randRange(1, 2.5));
     }
   }
