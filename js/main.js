@@ -15,6 +15,11 @@ const STICK_RADIUS  = 70;   // px, thumbstick travel radius (screen space)
 const KNOB_RADIUS   = 26;   // px, drawn knob size
 const DOUBLE_TAP_MS = 350;  // ms window: a 2nd tap within this boosts while held
 
+// ---------- Camera zoom tuning ----------
+const DESKTOP_ZOOM_BASE = 1.5;
+const MOBILE_ZOOM_BASE  = 0.85; // lower = wider FOV on mobile
+
+
 function escapeHtml(s) {
   s = String(s == null ? "" : s);
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -25,12 +30,18 @@ function fmtTime(sec) {
   return m + ":" + String(s).padStart(2, "0");
 }
 
+function biasedRandom(low, high, bias) {
+  let r = Math.random();
+  r = Math.pow(r, bias);
+  return low + (high - low) * r;
+}
+
 class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
-
+	
     // DOM refs
     this.hudEl      = document.getElementById("hud");
     this.scoreEl    = document.getElementById("score");
@@ -51,7 +62,9 @@ class Game {
       document.getElementById("help-steer").innerHTML  = "<b>Drag</b> the thumbstick to steer";
       document.getElementById("help-boost").innerHTML = "<b>Double-tap &amp; hold</b> to boost";
     }
-
+	
+   
+ 
     // State
     this.state = "menu";            // menu | playing | dead
     this.time = 0;
@@ -64,7 +77,8 @@ class Game {
     this.runStart = 0;
 
     // Camera
-    this.cam = { x: 0, y: 0, zoom: 1.2 };
+    this.cam = { x: 0, y: 0, zoom: this.isTouch ? MOBILE_ZOOM_BASE : 1.2 };
+
 
     // World
     this.snakes = [];
@@ -84,6 +98,15 @@ class Game {
 
     requestAnimationFrame(this.loop);
   }
+
+  targetZoomForMass(mass) {
+      const baseZoom = this.isTouch ? MOBILE_ZOOM_BASE : DESKTOP_ZOOM_BASE;
+      return clamp(
+        baseZoom / Math.pow(1 + mass * 0.03, 0.42),
+        0.42,
+        baseZoom
+      );
+    }
 
   // ---------- Setup ----------
   resize() {
@@ -109,6 +132,8 @@ class Game {
     }
   }
 
+
+
   nextBotName() {
     // Refill from the master list when exhausted — shuffling an empty pool
     // in place would hand out `undefined` names, which later crashed the
@@ -131,6 +156,7 @@ class Game {
     return { x: randRange(-HALF + 400, HALF - 400), y: randRange(-HALF + 400, HALF - 400) };
   }
 
+
   createBot() {
     const pos = this.findSpawnPoint(450);
     const s = new Snake({
@@ -138,7 +164,7 @@ class Game {
       name: this.nextBotName(),
       isPlayer: false,
       x: pos.x, y: pos.y,
-      mass: randRange(8, 60)
+      mass: biasedRandom(8, 600, 10)
     });
     this.snakes.push(s);
     this.brains.push(new BotBrain(s));
@@ -419,8 +445,9 @@ class Game {
     if (p && p.alive) {
       tx = p.x + Math.cos(p.angle) * 50;
       ty = p.y + Math.sin(p.angle) * 50;
-      tz = clamp(1.5 / Math.pow(1 + p.mass * 0.03, 0.42), 0.42, 1.5);
+      tz = this.targetZoomForMass(p.mass);
     }
+
     const k = Math.min(1, dt * 6);
     this.cam.x += (tx - this.cam.x) * k;
     this.cam.y += (ty - this.cam.y) * k;
@@ -475,8 +502,8 @@ class Game {
     ctx.scale(zoom, zoom);
     ctx.translate(-this.cam.x, -this.cam.y);
 
-    const hw = (w / 2) / zoom + 300;
-    const hh = (h / 2) / zoom + 300;
+    const hw = (w / 2) / zoom + 60;
+    const hh = (h / 2) / zoom + 60;
     const view = {
       x0: this.cam.x - hw, y0: this.cam.y - hh,
       x1: this.cam.x + hw, y1: this.cam.y + hh

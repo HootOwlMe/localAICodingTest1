@@ -62,7 +62,7 @@ class FoodSystem {
     const out = [];
     this.grid.query(snake.x, snake.y, snake.radius + 14, out);
     let total = 0;
-    const eatR2 = Math.pow(snake.radius + 5, 2);
+    const eatR2 = Math.pow(snake.radius + 6, 2);
     for (const p of out) {
       if (p.dead) continue;
       if (dist2(snake.x, snake.y, p.x, p.y) < eatR2 + p.r * p.r) {
